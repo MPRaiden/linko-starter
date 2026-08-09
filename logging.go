@@ -1,26 +1,27 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"os"
 )
 
-func initializeLogger() *log.Logger {
+func initializeLogger() (*log.Logger, error) {
 	fileName, exists := os.LookupEnv("LINKO_LOG_FILE")
 	if exists {
 		logFile, err := os.OpenFile(fileName, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o644)
 		if err != nil {
-			log.Fatalf("failed to open log file: %v", err)
+			return nil, fmt.Errorf("failed to open file: %v", err)
 		}
 		multiWritter := io.MultiWriter(os.Stderr, logFile)
 		logger := log.New(multiWritter, "", log.LstdFlags)
 
-		return logger
+		return logger, nil
 	}
 
 	singleWritter := os.Stderr
 	logger := log.New(singleWritter, "", log.LstdFlags)
 
-	return logger
+	return logger, nil
 }
