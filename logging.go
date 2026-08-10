@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"io"
 	"log/slog"
 	"os"
 )
@@ -11,6 +10,10 @@ import (
 type closeFunc func() error
 
 func initializeLogger() (*slog.Logger, closeFunc, error) {
+	debugHandler := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	})
+
 	fileName, exists := os.LookupEnv("LINKO_LOG_FILE")
 	if exists {
 		logFile, err := os.OpenFile(fileName, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o644)
@@ -19,8 +22,14 @@ func initializeLogger() (*slog.Logger, closeFunc, error) {
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to open file: %v", err)
 		}
-		multiWritter := io.MultiWriter(os.Stderr, bufferedFile)
-		logger := slog.New(slog.NewTextHandler(multiWritter, nil))
+		infoHandler := slog.NewTextHandler(bufferedFile, &slog.HandlerOptions{
+			Level: slog.LevelInfo,
+		})
+
+		logger := slog.New(slog.NewMultiHandler(
+			debugHandler,
+			infoHandler,
+		))
 
 		closeLogger := func() error {
 			err := bufferedFile.Flush()
@@ -36,8 +45,9 @@ func initializeLogger() (*slog.Logger, closeFunc, error) {
 		return logger, closeLogger, nil
 	}
 
-	singleWritter := os.Stderr
-	logger := slog.New(slog.NewTextHandler(singleWritter, nil))
+	logger := slog.New(slog.NewMultiHandler(
+		debugHandler,
+	))
 
 	closeFuncNoOp := func() error {
 		return nil
