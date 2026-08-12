@@ -22,7 +22,7 @@ func initializeLogger() (*slog.Logger, closeFunc, error) {
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to open file: %v", err)
 		}
-		infoHandler := slog.NewTextHandler(bufferedFile, &slog.HandlerOptions{
+		infoHandler := slog.NewJSONHandler(bufferedFile, &slog.HandlerOptions{
 			Level: slog.LevelInfo,
 		})
 
