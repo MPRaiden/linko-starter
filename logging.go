@@ -9,9 +9,21 @@ import (
 
 type closeFunc func() error
 
+func replaceAttr(groups []string, a slog.Attr) slog.Attr {
+	if a.Key == "error" {
+		err, ok := a.Value.Any().(error)
+		if !ok {
+			return a
+		}
+		return slog.String("error", fmt.Sprintf("%+v", err))
+	}
+	return a
+}
+
 func initializeLogger() (*slog.Logger, closeFunc, error) {
 	debugHandler := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-		Level: slog.LevelDebug,
+		ReplaceAttr: replaceAttr,
+		Level:       slog.LevelDebug,
 	})
 
 	fileName, exists := os.LookupEnv("LINKO_LOG_FILE")
@@ -23,7 +35,8 @@ func initializeLogger() (*slog.Logger, closeFunc, error) {
 			return nil, nil, fmt.Errorf("failed to open file: %v", err)
 		}
 		infoHandler := slog.NewJSONHandler(bufferedFile, &slog.HandlerOptions{
-			Level: slog.LevelInfo,
+			ReplaceAttr: replaceAttr,
+			Level:       slog.LevelInfo,
 		})
 
 		logger := slog.New(slog.NewMultiHandler(
