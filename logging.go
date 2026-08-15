@@ -19,7 +19,10 @@ type stackTracer interface {
 
 func replaceAttr(groups []string, a slog.Attr) slog.Attr {
 	if a.Key == "error" {
-		err, _ := a.Value.Any().(error)
+		err, ok := a.Value.Any().(error)
+		if !ok {
+			return a
+		}
 		if stackErr, ok := errors.AsType[stackTracer](err); ok {
 			return slog.GroupAttrs("error", slog.Attr{
 				Key:   "message",
