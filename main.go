@@ -28,9 +28,16 @@ func main() {
 
 func run(ctx context.Context, cancel context.CancelFunc, httpPort int, dataDir string) int {
 	logger, closeFunc, err := initializeLogger()
+	hostName, err := os.Hostname()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to read hostName: %v", err)
+	}
+	env := os.Getenv("ENV")
 	logger = logger.With(
 		slog.String("git_sha", build.GitSHA),
 		slog.String("build_time", build.BuildTime),
+		slog.String("env", env),
+		slog.String("hostname", hostName),
 	)
 	defer func() {
 		err := closeFunc()
