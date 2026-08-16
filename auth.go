@@ -13,6 +13,12 @@ type contextKey string
 
 const UserContextKey contextKey = "user"
 
+type LogContext struct {
+	Username string
+}
+
+const logContextKey contextKey = "log_context"
+
 var allowedUsers = map[string]string{
 	"frodo":   "$2a$10$B6O/n6teuCzpuh66jrUAdeaJ3WvXcxRkzpN0x7H.di9G9e/NGb9Me",
 	"samwise": "$2a$10$EWZpvYhUJtJcEMmm/IBOsOGIcpxUnGIVMRiDlN/nxl1RRwWGkJtty",
@@ -43,6 +49,8 @@ func (s *server) authMiddleware(next http.Handler) http.Handler {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
+		ctx := r.Context().Value(logContextKey).(*LogContext)
+		ctx.Username = user
 		r = r.WithContext(context.WithValue(r.Context(), UserContextKey, user))
 		next.ServeHTTP(w, r)
 	})

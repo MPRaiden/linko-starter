@@ -111,8 +111,20 @@ func requestLogger(logger *slog.Logger) func(http.Handler) http.Handler {
 			spyReader := &spyReadCloser{ReadCloser: r.Body}
 			r.Body = spyReader
 			spyWriter := &spyResponseWriter{ResponseWriter: w}
-			next.ServeHTTP(spyWriter, r)
-			logger.Info("Served request", "method", r.Method, "path", r.URL.Path, "client_ip", r.RemoteAddr, slog.Duration("duration", time.Since(start)), slog.Int("request_body_bytes", spyReader.bytesRead), slog.Int("response_status", spyWriter.statusCode), slog.Int("response_body_bytes", spyWriter.bytesWritten))
+
+			logContext := &LogContext{Username: ""}
+			ctx := context.WithValue(r.Context(), logContextKey, logContext)
+			modedReq := r.WithContext(ctx)
+
+			next.ServeHTTP(spyWriter, modedReq)
+
+			infoArgs := []any{"method", modedReq.Method, "path", modedReq.URL.Path, "client_ip", modedReq.RemoteAddr, slog.Duration("duration", time.Since(start)), slog.Int("request_body_bytes", spyReader.bytesRead), slog.Int("response_status", spyWriter.statusCode), slog.Int("response_body_bytes", spyWriter.bytesWritten)}
+
+			if logContext.Username != "" {
+				infoArgs = append(infoArgs, "user", logContext.Username)
+			}
+
+			logger.Info("Served request", infoArgs...)
 		})
 	}
 }
