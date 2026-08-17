@@ -2,12 +2,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"net/http"
 
 	"golang.org/x/crypto/bcrypt"
-)
 
-import pkgerr "github.com/pkg/errors"
+	pkgerr "github.com/pkg/errors"
+)
 
 type contextKey string
 
@@ -15,6 +16,7 @@ const UserContextKey contextKey = "user"
 
 type LogContext struct {
 	Username string
+	Error    error
 }
 
 const logContextKey contextKey = "log_context"
@@ -31,22 +33,22 @@ func (s *server) authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user, password, ok := r.BasicAuth()
 		if !ok {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			httpError(r.Context(), w, http.StatusUnauthorized, pkgerr.WithStack(errors.New("unauthorized")))
 			return
 		}
 		stored, exists := allowedUsers[user]
 		if !exists {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			httpError(r.Context(), w, http.StatusUnauthorized, pkgerr.WithStack(errors.New("unauthorized")))
 			return
 		}
 		ok, err := s.validatePassword(password, stored)
 		if err != nil {
 			s.logger.Error("error validating password", "user", user, "error", err)
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			httpError(r.Context(), w, http.StatusInternalServerError, pkgerr.WithStack(errors.New("internal server error")))
 			return
 		}
 		if !ok {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			httpError(r.Context(), w, http.StatusUnauthorized, pkgerr.WithStack(errors.New("unauthorized")))
 			return
 		}
 		ctx := r.Context().Value(logContextKey).(*LogContext)
@@ -65,4 +67,11 @@ func (s *server) validatePassword(password, stored string) (bool, error) {
 		return false, pkgerr.WithStack(err)
 	}
 	return true, nil
+}
+
+func httpError(ctx context.Context, w http.ResponseWriter, status int, err error) {
+	if logCtx, ok := ctx.Value(logContextKey).(*LogContext); ok {
+		logCtx.Error = err
+	}
+	http.Error(w, err.Error(), status)
 }

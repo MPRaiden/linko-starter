@@ -123,6 +123,9 @@ func requestLogger(logger *slog.Logger) func(http.Handler) http.Handler {
 			if logContext.Username != "" {
 				infoArguments = append(infoArguments, "user", logContext.Username)
 			}
+			if logContext.Error != nil {
+				infoArguments = append(infoArguments, "error", logContext.Error)
+			}
 
 			logger.Info("Served request", infoArguments...)
 		})
