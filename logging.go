@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -12,6 +11,8 @@ import (
 	"github.com/mattn/go-isatty"
 	pkgerr "github.com/pkg/errors"
 )
+
+import "gopkg.in/natefinch/lumberjack.v2"
 
 type closeFunc func() error
 
@@ -77,13 +78,16 @@ func initializeLogger() (*slog.Logger, closeFunc, error) {
 
 	fileName, exists := os.LookupEnv("LINKO_LOG_FILE")
 	if exists {
-		logFile, err := os.OpenFile(fileName, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o644)
-		bufferedFile := bufio.NewWriterSize(logFile, 8192)
-
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to open file: %v", err)
+		fileLogger := &lumberjack.Logger{
+			Filename:   fileName,
+			MaxSize:    1,
+			MaxAge:     28,
+			MaxBackups: 10,
+			LocalTime:  false,
+			Compress:   true,
 		}
-		infoHandler := slog.NewJSONHandler(bufferedFile, &slog.HandlerOptions{
+
+		infoHandler := slog.NewJSONHandler(fileLogger, &slog.HandlerOptions{
 			ReplaceAttr: replaceAttr,
 			Level:       slog.LevelInfo,
 		})
@@ -94,16 +98,13 @@ func initializeLogger() (*slog.Logger, closeFunc, error) {
 		))
 
 		closeLogger := func() error {
-			err := bufferedFile.Flush()
+			err := fileLogger.Close()
 			if err != nil {
-				return fmt.Errorf("failed to flush buffered file: %w", err)
-			}
-			err = logFile.Close()
-			if err != nil {
-				return fmt.Errorf("failed to close logFile: %w", err)
+				return err
 			}
 			return nil
 		}
+
 		return logger, closeLogger, nil
 	}
 
