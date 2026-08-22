@@ -73,5 +73,17 @@ func httpError(ctx context.Context, w http.ResponseWriter, status int, err error
 	if logCtx, ok := ctx.Value(logContextKey).(*LogContext); ok {
 		logCtx.Error = err
 	}
-	http.Error(w, err.Error(), status)
+	var errTxt string
+	switch status {
+	case 401:
+		errTxt = http.StatusText(401)
+	case 403:
+		errTxt = http.StatusText(403)
+	case 500:
+		errTxt = http.StatusText(500)
+	default:
+		errTxt = err.Error()
+	}
+
+	http.Error(w, errTxt, status)
 }
