@@ -4,15 +4,16 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"os"
+	"strings"
 
 	"boot.dev/linko/internal/linkoerr"
 	"github.com/lmittmann/tint"
 	"github.com/mattn/go-isatty"
 	pkgerr "github.com/pkg/errors"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
-
-import "gopkg.in/natefinch/lumberjack.v2"
 
 type closeFunc func() error
 
@@ -117,4 +118,22 @@ func initializeLogger() (*slog.Logger, closeFunc, error) {
 	}
 
 	return logger, closeFuncNoOp, nil
+}
+
+func redactIP(address string) string {
+	host, _, err := net.SplitHostPort(address)
+	if err != nil {
+		return address
+	}
+
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return address
+	}
+
+	split := strings.Split(ip.String(), ".")
+	split[len(split)-1] = "x"
+	redacted := strings.Join(split, ".")
+
+	return redacted
 }

@@ -119,7 +119,7 @@ func requestLogger(logger *slog.Logger) func(http.Handler) http.Handler {
 
 			next.ServeHTTP(spyWriter, modedReq)
 
-			infoArguments := []any{"method", modedReq.Method, "path", modedReq.URL.Path, "client_ip", modedReq.RemoteAddr, slog.Duration("duration", time.Since(start)), slog.Int("request_body_bytes", spyReader.bytesRead), slog.Int("response_status", spyWriter.statusCode), slog.Int("response_body_bytes", spyWriter.bytesWritten), slog.String("request_id", spyWriter.Header().Get("X-Request-ID"))}
+			infoArguments := []any{"method", modedReq.Method, "path", modedReq.URL.Path, "client_ip", redactIP(modedReq.RemoteAddr), slog.Duration("duration", time.Since(start)), slog.Int("request_body_bytes", spyReader.bytesRead), slog.Int("response_status", spyWriter.statusCode), slog.Int("response_body_bytes", spyWriter.bytesWritten), slog.String("request_id", spyWriter.Header().Get("X-Request-ID"))}
 
 			if logContext.Username != "" {
 				infoArguments = append(infoArguments, "user", logContext.Username)
