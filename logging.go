@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/url"
 	"os"
 	"slices"
 	"strings"
@@ -15,6 +16,8 @@ import (
 	pkgerr "github.com/pkg/errors"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
+
+var sensitiveKeys = []string{"password", "key", "apikey", "secret", "pin", "creditcardno", "user"}
 
 type closeFunc func() error
 
@@ -48,7 +51,6 @@ func errorAttrs(err error) []slog.Attr {
 }
 
 func replaceAttr(groups []string, a slog.Attr) slog.Attr {
-	var sensitiveKeys = []string{"password", "key", "apikey", "secret", "pin", "creditcardno", "user"}
 
 	if a.Key == "error" {
 		err, ok := a.Value.Any().(error)
@@ -70,6 +72,22 @@ func replaceAttr(groups []string, a slog.Attr) slog.Attr {
 	if slices.Contains(sensitiveKeys, a.Key) {
 		return slog.String(a.Key, "[REDACTED]")
 	}
+	if a.Value.Kind() == slog.KindString {
+		urlValue, err := url.Parse(a.Value.String())
+		if err != nil {
+			return a
+		}
+		if urlValue.User == nil {
+			return a
+		}
+
+		_, set := urlValue.User.Password()
+		if set {
+			urlValue.User = url.UserPassword(urlValue.User.Username(), "[REDACTED]")
+			return slog.String(a.Key, urlValue.String())
+		}
+	}
+
 	return a
 }
 
