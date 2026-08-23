@@ -48,7 +48,7 @@ func errorAttrs(err error) []slog.Attr {
 }
 
 func replaceAttr(groups []string, a slog.Attr) slog.Attr {
-	var sensitiveKeys = []string{"password", "key", "apikey", "secret", "pin", "creditcardno"}
+	var sensitiveKeys = []string{"password", "key", "apikey", "secret", "pin", "creditcardno", "user"}
 
 	if a.Key == "error" {
 		err, ok := a.Value.Any().(error)
