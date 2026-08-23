@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"slices"
 	"strings"
 
 	"boot.dev/linko/internal/linkoerr"
@@ -47,6 +48,8 @@ func errorAttrs(err error) []slog.Attr {
 }
 
 func replaceAttr(groups []string, a slog.Attr) slog.Attr {
+	var sensitiveKeys = []string{"password", "key", "apikey", "secret", "pin", "creditcardno"}
+
 	if a.Key == "error" {
 		err, ok := a.Value.Any().(error)
 		if !ok {
@@ -63,6 +66,9 @@ func replaceAttr(groups []string, a slog.Attr) slog.Attr {
 		attrs := errorAttrs(err)
 
 		return slog.GroupAttrs("error", attrs...)
+	}
+	if slices.Contains(sensitiveKeys, a.Key) {
+		return slog.String(a.Key, "[REDACTED]")
 	}
 	return a
 }
