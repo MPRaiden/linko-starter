@@ -5,11 +5,15 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"io"
 	"log/slog"
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"boot.dev/linko/internal/store"
@@ -34,12 +38,20 @@ type spyResponseWriter struct {
 	statusCode   int
 }
 
+var httpRequestsTotal = promauto.NewCounterVec(
+	prometheus.CounterOpts{
+		Name: "http_requests_total",
+		Help: "Total number of HTTP requests.",
+	},
+	[]string{"method", "path", "status"},
+)
+
 func newServer(store store.Store, port int, cancel context.CancelFunc, logger *slog.Logger) *server {
 	mux := http.NewServeMux()
 
 	srv := &http.Server{
 		Addr:    fmt.Sprintf(":%d", port),
-		Handler: requestIDMiddleware(requestLogger(logger)(mux)),
+		Handler: metricsMiddleware(requestIDMiddleware()(requestLogger(logger)(mux))),
 	}
 
 	s := &server{
@@ -135,13 +147,44 @@ func requestLogger(logger *slog.Logger) func(http.Handler) http.Handler {
 	}
 }
 
-func requestIDMiddleware(next http.Handler) http.Handler {
+func requestIDMiddleware() func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			id := r.Header.Get("X-Request-ID")
+			if id == "" {
+				id = rand.Text()
+			}
+			w.Header().Set("X-Request-ID", id)
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+type statusRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (r *statusRecorder) WriteHeader(code int) {
+	r.status = code
+	r.ResponseWriter.WriteHeader(code)
+}
+
+func metricsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		reqID := r.Header.Get("X-Request-ID")
-		if reqID == "" {
-			reqID = rand.Text()
+		rec := &statusRecorder{
+			ResponseWriter: w,
+			status:         http.StatusOK,
 		}
-		w.Header().Set("X-Request-ID", reqID)
-		next.ServeHTTP(w, r)
+
+		next.ServeHTTP(rec, r)
+
+		path := r.URL.Path
+		method := r.Method
+		status := strconv.Itoa(rec.status)
+
+		httpRequestsTotal.
+			WithLabelValues(method, path, status).
+			Inc()
 	})
 }
