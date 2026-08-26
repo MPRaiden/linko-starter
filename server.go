@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"boot.dev/linko/internal/store"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 type server struct {
