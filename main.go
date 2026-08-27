@@ -27,6 +27,13 @@ func main() {
 }
 
 func run(ctx context.Context, cancel context.CancelFunc, httpPort int, dataDir string) int {
+	closeTracing, err := initTracing(ctx)
+	defer func() {
+		err := closeTracing(context.Background())
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to close initTracing func: %v\n", err)
+		}
+	}()
 	logger, closeFunc, err := initializeLogger()
 	hostName, err := os.Hostname()
 	if err != nil {

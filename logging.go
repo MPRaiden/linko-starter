@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -9,13 +10,36 @@ import (
 	"os"
 	"slices"
 	"strings"
+	"time"
 
 	"boot.dev/linko/internal/linkoerr"
 	"github.com/lmittmann/tint"
 	"github.com/mattn/go-isatty"
 	pkgerr "github.com/pkg/errors"
 	"gopkg.in/natefinch/lumberjack.v2"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/sdk/resource"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
+
+func initTracing(ctx context.Context) (func(context.Context) error, error) {
+	exp, err := otlptracegrpc.New(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithBatcher(exp,
+			sdktrace.WithBatchTimeout(2*time.Second),
+		),
+		sdktrace.WithResource(resource.Default()),
+	)
+
+	otel.SetTracerProvider(tp)
+	return tp.Shutdown, nil
+}
 
 var sensitiveKeys = []string{"password", "key", "apikey", "secret", "pin", "creditcardno", "user"}
 
