@@ -22,7 +22,10 @@ import (
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/trace"
 )
+
+var tracer trace.Tracer
 
 func initTracing(ctx context.Context) (func(context.Context) error, error) {
 	exp, err := otlptracegrpc.New(ctx)
@@ -36,6 +39,8 @@ func initTracing(ctx context.Context) (func(context.Context) error, error) {
 		),
 		sdktrace.WithResource(resource.Default()),
 	)
+
+	tracer = tp.Tracer("boot.dev/linko")
 
 	otel.SetTracerProvider(tp)
 	return tp.Shutdown, nil
